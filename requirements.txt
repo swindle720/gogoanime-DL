@@ -1,0 +1,4 @@
+requests
+pySmartDL
+bs4
+selenium
