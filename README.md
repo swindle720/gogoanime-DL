@@ -1,0 +1,2 @@
+# gogoanime-DL
+Educational Purposes
