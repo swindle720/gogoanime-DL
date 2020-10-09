@@ -6,8 +6,8 @@ from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 import re
 
-class gogoanime_DL:
 
+class gogoanime_DL:
     class Quality:
         BEST = "720"
         MED = "480"
@@ -18,6 +18,7 @@ class gogoanime_DL:
     url = None
     dl_folder = os.path.join(os.getcwd(), 'dl')
     series_name = None
+    title = None
 
     def __init__(self, url):
         chrome_options = Options()
@@ -40,7 +41,7 @@ class gogoanime_DL:
         print("Completed.")
 
         skip = None
-        while(isinstance(skip, int) is False):
+        while (isinstance(skip, int) is False):
             try:
                 skip = int(input("Want to skip episodes (0-{})? ".format(len(episode_links))))
 
@@ -63,11 +64,13 @@ class gogoanime_DL:
         return episode_links
 
     def getPoster(self):
-        print("Extracting Poster")
+        print("Extracting Poster/Title")
         html = self.browser.page_source
         soup = BeautifulSoup(html, 'html.parser')
         div = soup.find('div', {"class", 'anime_info_body_bg'})
         imgsrc = div.find("img")
+        self.title = div.find("h1").getText().strip()
+        print("Found Title: {}".format(self.title))
 
         if imgsrc['src'] is not None:
             print("Found poster: {}".format(imgsrc['src']))
@@ -75,7 +78,7 @@ class gogoanime_DL:
             obj = SmartDL(imgsrc['src'], self.dl_folder)
             obj.start()
             ext = self.getextension(obj.get_dest())
-            os.rename(r'{}'.format(obj.get_dest()), r'dl/poster.{}'.format(ext))
+            os.rename(r'{}'.format(obj.get_dest()), r'dl/poster{}'.format(ext))
             print("Completed.")
         else:
             print("Could not get poster! Skipping..")
@@ -125,13 +128,13 @@ class gogoanime_DL:
         if int(Episode_number) < 10:
             Episode_number = "0" + Episode_number
         ext = self.getextension(file)
-        new_name = r'dl/{}-s{}e{}.{}'.format(Episode_name, "01", Episode_number, ext)
+        new_name = r'dl/{}-s{}e{}{}'.format(Episode_name, "01", Episode_number, ext)
         os.rename(r'{}'.format(file), new_name)
         return new_name, series_name
 
-    def PlexReconstruct(self, series_name):
+    def PlexReconstruct(self):
         print("Rebuilding Folder structure for plex server..")
-        name = os.path.join(self.dl_folder, series_name)
+        name = os.path.join(self.dl_folder, self.title)
         if os.path.isdir(name) is False:
             os.mkdir(name)
 
@@ -154,7 +157,8 @@ class gogoanime_DL:
         return found
 
     def __del__(self):
-        self.browser.close()
+        if self.browser is not None:
+            self.browser.close()
 
     def Runner(self, Tname):
         global episode_links
@@ -175,7 +179,6 @@ class gogoanime_DL:
                     print("{} Episode renamed to: ".format(Tname, new_name))
 
 
-
 RunningThreads = []
 Thread_Count = 3
 
@@ -190,9 +193,10 @@ if Thread_Count > len(episode_links):
 for i in range(Thread_Count):
     gogoanime = gogoanime_DL(url)
     t = Thread(target=gogoanime.Runner, args=("Thread-{}".format(i),))
-    t.start()
-    t.join()
     RunningThreads.append(t)
+    t.start()
 
-series = input("Enter name of series: ")
-main.PlexReconstruct(series)
+for t in RunningThreads:
+    t.join()
+
+main.PlexReconstruct()
